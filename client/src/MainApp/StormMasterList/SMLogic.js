@@ -9,25 +9,70 @@ export function extractBaseAndSuffix(nmsString) {
   let suffixLetters = '';
 
   const anchors = [
-    'DDS', 'AGUSAN', 'AGUADA', 'AFGA', 'CDO', 'DVO', 'DDN', 'DDO', 'DVOR', 'DVOC', 'KUD', 'MOR', 'MISOCC',
-    'CVLY', 'NCOT', 'SCOT', 'MGDN', 'LDN', 'LDS', 'BUK', 'ZDS', 'ZDN', 'MISOR', 'MOCC', 'SDN', 'SDS', 'AGS', 'AGN', 'SAR', 'COT',
-    'MKLALA', 'PANABO', 'TAGUM', 'DIGOS', 'GENSAN', 'ZAMBOA', 'POLOMO', 'MRAMAG', 'KIDAP', 'COTAB', 'MATI', 'GINGOO', 'DIPOL', 'OZAMIS', 'OZM', 'ILIGAN', 'MARAWI', 'BUTUAN', 'CARMEN', 'STOMAS', 'KPALON', 'SAMAL', 'PANTUK', 'MACO', 'MALITA', 'BANSAL', 'PADADA', 'SULOP', 'SMARIA', 'GLAN', 'ALABEL', 'MALAPAT', 'SFRANC', 'MIDSAY', 'SFERN', 'PGDIAN', 'MFORT', 'TACUROS', 'BISLIG', 'CLAVER', 'BAYABS', 'DAVAO',
-    'TRNSCOZ', 'TRNSCO', 'BASCOW', 'BAS'
-  ];
+  "DVOC","DVOR","MISOR","MOR","MOCC","MOC","DNGT","CMGN","ZSIB","ZDN",
+  "SKUD","MGDN","MGND","SCOT","NCOT","COT","SAR","AGN","LDN","LDS",
+  "DDN","SDN","SDS","BUK","DDO","CVLY","AGS","DDS","BAS","SULU",
+  "TAWI","ZDS"
+];
 
-  let matched = false;
+const anchors2nd = ['TEMPO', 'ID', 'AS', '_D', 'COW', 'TEMP', 'EM', '-D', 'OD', 'IO', 'LS'];
+
+let matched = false;
+
+function findBestAnchor(str, anchors) {
+  let bestAnchor = null;
+  let bestIndex = -1;
+  let bestLength = -1;
 
   for (const anchor of anchors) {
-    let idx = originalStr.lastIndexOf(anchor);
-    if (idx !== -1) {
-      let potentialSuffix = originalStr.slice(idx + anchor.length);
-      let suffixTest = potentialSuffix.match(/^([-_ ]*)((?:ID|AS|[XYLFWKHVZJBMNPRTD])*)$/i);
+    const idx = str.lastIndexOf(anchor);
+    if (idx === -1) continue;
 
-      if (suffixTest && suffixTest[0] === potentialSuffix) {
-        let separator = suffixTest[1];
-        let actualSuffix = suffixTest[2];
-        displayBase = originalStr.slice(0, idx + anchor.length) + separator;
-        suffixLetters = actualSuffix;
+    const len = anchor.length;
+
+    if (
+      len > bestLength ||
+      (len === bestLength && idx > bestIndex)
+    ) {
+      bestAnchor = anchor;
+      bestIndex = idx;
+      bestLength = len;
+    }
+  }
+
+  return { bestAnchor, bestIndex };
+}
+
+const { bestAnchor, bestIndex } = findBestAnchor(originalStr, anchors);
+
+if (bestAnchor !== null) {
+  const anchor = bestAnchor;
+  let idx = bestIndex;
+
+  for (const secAnchor of anchors2nd) {
+    let secIdx = originalStr.indexOf(secAnchor, idx + anchor.length);
+
+    if (secIdx !== -1) {
+      let potentialSuffix = originalStr.slice(
+        idx + anchor.length + secAnchor.length
+      );
+
+      const isValidSuffix = /^[XYLFWKHVBMNPRT]*$/i.test(potentialSuffix);
+
+      if (isValidSuffix) {
+        suffixLetters = potentialSuffix;
+        displayBase = originalStr.slice(
+          0,
+          secIdx + secAnchor.length
+        );
+        matched = true;
+        break;
+      } else {
+        suffixLetters = "";
+        displayBase = originalStr.slice(
+          0,
+          secIdx + secAnchor.length
+        );
         matched = true;
         break;
       }
@@ -35,20 +80,59 @@ export function extractBaseAndSuffix(nmsString) {
   }
 
   if (!matched) {
-    let fallbackMatch = originalStr.match(/([-_ ]*)((?:ID|AS|[XYLFWKHVZJBMNPRTD])+ )$/i);
-    if (!fallbackMatch) {
-      fallbackMatch = originalStr.match(/([-_ ]*)((?:ID|AS|[XYLFWKHVZJBMNPRTD])+ )$/i); // fallback pattern if needed
-    }
-    // removed buggy extra space in regex above; using earlier anchor logic
-    fallbackMatch = originalStr.match(/([-_ ]*)((?:ID|AS|[XYLFWKHVZJBMNPRTD])+)$/i);
-    if (fallbackMatch) {
-      let separator = fallbackMatch[1];
-      let actualSuffix = fallbackMatch[2];
-      displayBase = originalStr.slice(0, -fallbackMatch[0].length) + separator;
-      suffixLetters = actualSuffix;
+    let potentialSuffix = originalStr.slice(idx + anchor.length);
+    const isValidSuffix = /^[XYLFWKHVBMNPRT]*$/i.test(potentialSuffix);
+
+    if (isValidSuffix) {
+      suffixLetters = potentialSuffix;
+      displayBase = originalStr.slice(0, idx + anchor.length);
+      matched = true;
+    } else {
+      suffixLetters = "";
+      displayBase = originalStr.slice(0, idx + anchor.length);
+      matched = true;
     }
   }
+}
 
+  const nomatchanchor = ['_D', 'COW', 'TEMPO', 'TEMP', '-D'];
+
+  let found = false;
+
+  if (!matched) {
+    for (const anchor of nomatchanchor) {
+      let idx = originalStr.lastIndexOf(anchor);
+      if (idx !== -1) {
+        let potentialSuffix = originalStr.slice(idx + anchor.length);
+        const isValidSuffix = /^[XYLFWKHVBMNPRT]*$/i.test(potentialSuffix);
+
+        if (isValidSuffix) {
+          suffixLetters = potentialSuffix;
+          displayBase = originalStr.slice(0, idx + anchor.length);
+          found = true;
+          break;
+        }else {
+          suffixLetters = "";
+          displayBase = originalStr.slice(0, idx + anchor.length);
+          found = true;
+          break;
+        }
+      }
+    }
+    if (!found) {
+      let fallbackMatch = originalStr.match(/([-_ ]*)((?:ID|AS|[XYLFWKHVBMNPRT])+ )$/i);
+      if (!fallbackMatch) {
+        fallbackMatch = originalStr.match(/([-_ ]*)((?:ID|AS|[XYLFWKHVBMNPRT])+ )$/i); // fallback pattern if needed
+      }
+      fallbackMatch = originalStr.match(/([-_ ]*)((?:ID|AS|[XYLFWKHVBMNPRT])+)$/i);
+      if (fallbackMatch) {
+        let separator = fallbackMatch[1];
+        let actualSuffix = fallbackMatch[2];
+        displayBase = originalStr.slice(0, -fallbackMatch[0].length) + separator + "--";
+        suffixLetters = actualSuffix;
+      }
+    }
+  }
   let cleanBase = displayBase.replace(/[^A-Z0-9]/g, '');
 
   return {
@@ -136,17 +220,17 @@ export function processCSVComparison(nmsText, udmText) {
     var nmsHeaders = nmsData[0];
     var udmHeaders = udmData[0];
 
-    var udmNameIdx = getIndex(udmHeaders, ['BCF NAME']);
+    var udmNameIdx = getIndex(udmHeaders, ['BCF NAME', 'SITE NAME']);
     var udmIdIdx = getIndex(udmHeaders, ['PLA_ID', 'PLA ID']);
     var udmLatIdx = getIndex(udmHeaders, ['LATITUDE', 'LAT']);
     var udmLngIdx = getIndex(udmHeaders, ['LONGITUDE', 'LONG']);
     var udmSAreaIdx = getIndex(udmHeaders, ['ASSIGNED_AREA', 'ASSIGN_AREA', 'ASSIGN AREA', 'ASSIGNED AREA']);
     var udmProIdx = getIndex(udmHeaders, ['PROVINCE']);
-    var udmMCtyIdx = getIndex(udmHeaders, ['ASSIGN_CITY/MUNICIPALITY']);
+    var udmMCtyIdx = getIndex(udmHeaders, ['ASSIGN_CITY/MUNICIPALITY', 'TOWN']);
     var udmSAddIdx = getIndex(udmHeaders, ['SITE_ADDRESS', 'SITE_ADD', 'SITE ADDRESS', 'SITE ADD']);
     var udmTrtIdx = getIndex(udmHeaders, ['TERRITORY']);
     var udmHSvrIdx = getIndex(udmHeaders, ['HIROSHIMA SEVERITY', 'HIROSHIMA_SEVERITY']);
-    var udmtwrCIdx = getIndex(udmHeaders, ['TOWERCO']);
+    var udmtwrCIdx = getIndex(udmHeaders, ['TOWERCO', 'TOWERCO NAME (ASCEO)']);
 
     var nms2GNameIdx = getIndex(nmsHeaders, ['2G', 'NAME']);
     var nms4GNameIdx = getIndex(nmsHeaders, ['4G', 'ENBNAME']);
